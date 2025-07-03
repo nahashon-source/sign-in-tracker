@@ -4,20 +4,17 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
+class CreateUsersTable extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function up()
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->string('id')->primary(); // Assuming id is a string (e.g., UUID)
             $table->string('userPrincipalName')->unique();
-            $table->string('displayName')->nullable();
-            $table->string('surname')->nullable();
-            $table->string('mail')->nullable();
-            $table->string('givenName')->nullable();
+            $table->string('displayName');
+            $table->string('surname');
+            $table->string('mail')->unique();
+            $table->string('givenName');
             $table->string('userType')->nullable();
             $table->string('jobTitle')->nullable();
             $table->string('department')->nullable();
@@ -33,22 +30,19 @@ return new class extends Migration
             $table->string('mobilePhone')->nullable();
             $table->string('alternateEmailAddress')->nullable();
             $table->string('ageGroup')->nullable();
-            $table->boolean('consentProvidedForMinor')->nullable();
+            $table->string('consentProvidedForMinor')->nullable();
             $table->string('legalAgeGroupClassification')->nullable();
             $table->string('companyName')->nullable();
             $table->string('creationType')->nullable();
             $table->boolean('directorySynced')->nullable();
             $table->string('invitationState')->nullable();
             $table->string('identityIssuer')->nullable();
-            $table->timestamps();
+            $table->timestamp('createdDateTime')->nullable();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('users');
     }
-};
+}
