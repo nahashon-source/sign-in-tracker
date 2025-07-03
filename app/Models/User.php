@@ -2,47 +2,55 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    public $timestamps = false; // ✅ Prevent Laravel from expecting created_at/updated_at columns
+
+    protected $primaryKey = 'id';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+        'id',
+        'userPrincipalName',
+        'displayName',
+        'surname',
+        'mail',
+        'givenName',
+        'userType',
+        'jobTitle',
+        'department',
+        'accountEnabled',
+        'usageLocation',
+        'streetAddress',
+        'state',
+        'country',
+        'officeLocation',
+        'city',
+        'postalCode',
+        'telephone',
+        'mobilePhone',
+        'alternateEmailAddress',
+        'ageGroup',
+        'consentProvidedForMinor',
+        'legalAgeGroupClassification',
+        'companyName',
+        'creationType',
+        'directorySynced',
+        'invitationState',
+        'identityIssuer',
+        'createdDateTime',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    // Relationships
+    public function interactiveSignIns()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return $this->hasMany(InteractiveSignIn::class, 'User ID', 'id');
     }
 }
