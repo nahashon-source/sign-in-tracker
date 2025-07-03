@@ -55,7 +55,7 @@ class LoginTrackingController extends Controller
             })
             ->whereNull('interactive_sign_ins.user_id')
             ->select('users.*')
-            ->get();
+            ->paginate(20);
 
         return view('login-tracking.non-logged-in', compact('nonLoggedInUsers', 'days'));
     }

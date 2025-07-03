@@ -74,6 +74,6 @@ class InteractiveSignIn extends Model
     // 👇 Optional relationship to the User model
     public function user()
     {
-        return $this->belongsTo(User::class, 'User ID', 'id');
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 }
