@@ -52,5 +52,6 @@ class User extends Authenticatable
     public function interactiveSignIns()
     {
         return $this->hasMany(InteractiveSignIn::class, 'User ID', 'id');
+        
     }
 }
