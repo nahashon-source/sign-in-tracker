@@ -69,6 +69,24 @@
         </a>
     </form>
 
+    <!-- 🔍 Active Filter Summary -->
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded p-4 mb-6 text-sm">
+        <strong>Filter Summary:</strong><br>
+        @php
+            $activeSystem = request('system', 'SCM');
+            $filterLabel = match(request('filter')) {
+                'this_month' => 'This Month',
+                'previous_month' => 'Previous Month',
+                'last_3_months' => 'Last 3 Months',
+                default => 'Custom Range'
+            };
+            $start = request('start_date') ? \Carbon\Carbon::parse(request('start_date'))->format('M j, Y') : '30 days ago';
+            $end = request('end_date') ? \Carbon\Carbon::parse(request('end_date'))->format('M j, Y') : \Carbon\Carbon::now()->format('M j, Y');
+        @endphp
+        <div><span class="font-semibold">System:</span> {{ $activeSystem }}</div>
+        <div><span class="font-semibold">Date Range:</span> {{ $start }} → {{ $end }} <span class="italic text-gray-500">({{ $filterLabel }})</span></div>
+    </div>
+
     <p class="text-gray-600 mb-3">Showing {{ $users->count() }} of {{ $users->total() }} users</p>
 
     <!-- User Table -->
