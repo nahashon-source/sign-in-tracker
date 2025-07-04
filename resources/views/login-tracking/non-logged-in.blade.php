@@ -9,38 +9,68 @@
 <body class="bg-gray-100">
 <div class="container mx-auto p-4">
 
-    <h1 class="text-2xl font-bold mb-4">Users Who Have Not Logged In</h1>
+    <h1 class="text-2xl font-bold mb-4 text-gray-800">Users Who Have Not Logged In</h1>
     
     <a href="{{ route('login-tracking.index') }}" class="mb-4 inline-block text-blue-500 underline">← Back to Dashboard</a>
 
     <!-- Flash messages -->
     @if (session('success'))
-        <div class="bg-green-200 text-green-800 p-2 rounded mb-4">
+        <div class="bg-green-200 text-green-800 p-3 rounded mb-4">
             {{ session('success') }}
         </div>
     @elseif (session('error'))
-        <div class="bg-red-200 text-red-800 p-2 rounded mb-4">
+        <div class="bg-red-200 text-red-800 p-3 rounded mb-4">
             {{ session('error') }}
         </div>
     @endif
 
     <!-- Filters -->
-    <form method="GET" class="flex flex-wrap items-center gap-2 mb-4">
-        <label for="days" class="font-medium">Quick Range:</label>
-        <select name="days" id="days" class="border p-2 rounded">
-            <option value="6" {{ request('days') == 6 ? 'selected' : '' }}>Last 6 Days</option>
-            <option value="12" {{ request('days') == 12 ? 'selected' : '' }}>Last 12 Days</option>
-            <option value="30" {{ request('days') == 30 ? 'selected' : '' }}>Last 30 Days</option>
-        </select>
+    <form method="GET" class="flex flex-wrap items-end gap-4 mb-6 bg-white p-4 rounded shadow">
 
-        <label for="start_date" class="ml-2 font-medium">Start:</label>
-        <input type="date" name="start_date" value="{{ request('start_date') }}" class="border p-2 rounded">
+        <!-- Predefined Filter -->
+        <div>
+            <label for="filter" class="block font-medium">Date Filter</label>
+            <select name="filter" id="filter" class="border p-2 rounded" onchange="this.form.submit()">
+                <option value="">Custom Range</option>
+                <option value="this_month" {{ request('filter') == 'this_month' ? 'selected' : '' }}>This Month</option>
+                <option value="previous_month" {{ request('filter') == 'previous_month' ? 'selected' : '' }}>Previous Month</option>
+                <option value="last_3_months" {{ request('filter') == 'last_3_months' ? 'selected' : '' }}>Last 3 Months</option>
+            </select>
+        </div>
 
-        <label for="end_date" class="ml-2 font-medium">End:</label>
-        <input type="date" name="end_date" value="{{ request('end_date') }}" class="border p-2 rounded">
+        <!-- Start Date -->
+        <div>
+            <label for="start_date" class="block font-medium">Start</label>
+            <input type="date" name="start_date" value="{{ request('start_date') }}" class="border p-2 rounded">
+        </div>
 
-        <button type="submit" class="bg-blue-500 text-white px-3 py-2 rounded">Filter</button>
-        <a href="{{ route('login-tracking.non-logged-in') }}" class="text-blue-500 underline">Reset</a>
+        <!-- End Date -->
+        <div>
+            <label for="end_date" class="block font-medium">End</label>
+            <input type="date" name="end_date" value="{{ request('end_date') }}" class="border p-2 rounded">
+        </div>
+
+        <!-- System -->
+        <div>
+            <label for="system" class="block font-medium">System</label>
+            <select name="system" id="system" class="border p-2 rounded">
+                @php
+                    $systems = ['SCM', 'Odoo', 'D365 Live', 'Fit Express', 'FIT ERP', 'Fit Express UAT', 'FITerp UAT', 'OPS', 'OPS UAT'];
+                @endphp
+                @foreach ($systems as $sys)
+                    <option value="{{ $sys }}" {{ request('system', 'SCM') === $sys ? 'selected' : '' }}>
+                        {{ $sys }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex items-center gap-2 mt-2 sm:mt-0">
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Filter</button>
+            <a href="{{ route('login-tracking.non-logged-in') }}" class="text-blue-500 underline">Reset</a>
+        </div>
+
     </form>
 
     <!-- Count Summary -->
@@ -48,22 +78,22 @@
         Showing {{ $nonLoggedInUsers->count() }} of {{ $nonLoggedInUsers->total() }} users
     </p>
 
-    <!-- Table -->
+    <!-- User Table -->
     <div class="overflow-x-auto">
         <table class="w-full bg-white shadow rounded">
             <thead>
-                <tr class="bg-gray-200 text-left">
-                    <th class="p-2">Display Name</th>
-                    <th class="p-2">Email</th>
-                    <th class="p-2">Department</th>
+                <tr class="bg-gray-200 text-left text-sm">
+                    <th class="p-3">Display Name</th>
+                    <th class="p-3">Email</th>
+                    <th class="p-3">Department</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($nonLoggedInUsers as $user)
-                    <tr class="hover:bg-gray-50 border-t">
-                        <td class="p-2">{{ $user->displayName ?? $user->name ?? 'N/A' }}</td>
-                        <td class="p-2">{{ $user->mail ?? 'N/A' }}</td>
-                        <td class="p-2">{{ $user->department ?? 'N/A' }}</td>
+                    <tr class="hover:bg-gray-50 border-t text-sm">
+                        <td class="p-3">{{ $user->displayName ?? $user->name ?? 'N/A' }}</td>
+                        <td class="p-3">{{ $user->mail ?? 'N/A' }}</td>
+                        <td class="p-3">{{ $user->department ?? 'N/A' }}</td>
                     </tr>
                 @empty
                     <tr>
@@ -76,7 +106,7 @@
         </table>
     </div>
 
-    <!-- Pagination Links -->
+    <!-- Pagination -->
     <div class="mt-4">
         {{ $nonLoggedInUsers->appends(request()->except('page'))->links() }}
     </div>
