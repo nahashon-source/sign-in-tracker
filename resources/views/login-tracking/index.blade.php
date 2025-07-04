@@ -18,32 +18,55 @@
         <div class="bg-red-200 text-red-800 p-3 rounded mb-4">{{ session('error') }}</div>
     @endif
 
-    <!-- Time Range + Date Range Filter -->
+    <!-- System + Date Filter -->
     <form method="GET" class="mb-6 flex flex-wrap gap-3 items-end bg-white p-4 rounded shadow">
+
+        <!-- Predefined Date Filters -->
         <div>
-            <label for="days" class="block font-medium">Quick Range</label>
-            <select name="days" id="days" class="border p-2 rounded" onchange="this.form.submit()">
-                <option value="6" {{ request('days') == 6 ? 'selected' : '' }}>Last 6 Days</option>
-                <option value="12" {{ request('days') == 12 ? 'selected' : '' }}>Last 12 Days</option>
-                <option value="30" {{ request('days') == 30 ? 'selected' : '' }}>Last 30 Days</option>
-                <option value="" {{ !request('days') ? 'selected' : '' }}>Custom</option>
+            <label for="filter" class="block font-medium">Date Filter</label>
+            <select name="filter" id="filter" class="border p-2 rounded" onchange="this.form.submit()">
+                <option value="">Custom Range</option>
+                <option value="this_month" {{ request('filter') == 'this_month' ? 'selected' : '' }}>This Month</option>
+                <option value="previous_month" {{ request('filter') == 'previous_month' ? 'selected' : '' }}>Previous Month</option>
+                <option value="last_3_months" {{ request('filter') == 'last_3_months' ? 'selected' : '' }}>Last 3 Months</option>
             </select>
         </div>
 
+        <!-- Start Date -->
         <div>
             <label for="start_date" class="block font-medium">Start</label>
             <input type="date" name="start_date" id="start_date" value="{{ request('start_date') }}" class="border p-2 rounded">
         </div>
 
+        <!-- End Date -->
         <div>
             <label for="end_date" class="block font-medium">End</label>
             <input type="date" name="end_date" id="end_date" value="{{ request('end_date') }}" class="border p-2 rounded">
         </div>
 
+        <!-- System Filter -->
+        <div>
+            <label for="system" class="block font-medium">System</label>
+            <select name="system" id="system" class="border p-2 rounded">
+                @php
+                    $systems = ['SCM', 'Odoo', 'D365 Live', 'Fit Express', 'FIT ERP', 'Fit Express UAT', 'FITerp UAT', 'OPS', 'OPS UAT'];
+                @endphp
+                @foreach ($systems as $sys)
+                    <option value="{{ $sys }}" {{ request('system', 'SCM') === $sys ? 'selected' : '' }}>
+                        {{ $sys }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <!-- Filter and Reset -->
         <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Filter</button>
 
         <a href="{{ route('login-tracking.index') }}" class="text-blue-500 underline ml-2">Reset</a>
-        <a href="{{ route('login-tracking.non-logged-in') }}" class="ml-auto text-blue-600 font-medium underline">View Non-Logged-In Users</a>
+        <a href="{{ route('login-tracking.non-logged-in', ['filter' => request('filter'), 'start_date' => request('start_date'), 'end_date' => request('end_date'), 'system' => request('system')]) }}"
+           class="ml-auto text-blue-600 font-medium underline">
+            View Non-Logged-In Users
+        </a>
     </form>
 
     <p class="text-gray-600 mb-3">Showing {{ $users->count() }} of {{ $users->total() }} users</p>
