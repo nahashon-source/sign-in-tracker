@@ -11,6 +11,34 @@
 
     <h1 class="text-3xl font-bold mb-6">User Login Tracking</h1>
 
+    <!-- ✅ Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+
+         <!-- Logged-in Users Card -->
+     <a href="{{ route('login-tracking.index', array_merge(request()->only('filter', 'start_date', 'end_date', 'system'), ['only_logged_in' => '1'])) }}"
+        class="block bg-white border-l-4 border-green-500 shadow rounded p-4 hover:bg-green-50 transition">
+         <div class="text-sm text-gray-500">Logged-in Users</div>
+         <div class="text-2xl font-bold text-green-600">
+             {{ $summaryCounts['loggedIn'] ?? 0 }}
+         </div>
+     </a>
+     
+     
+     
+     
+             
+     <!-- Non-Logged-in Users Card -->
+     <a href="{{ route('login-tracking.non-logged-in', request()->only('filter', 'start_date', 'end_date', 'system')) }}"
+        class="block bg-white border-l-4 border-red-500 shadow rounded p-4 hover:bg-red-50 transition">
+         <div class="text-sm text-gray-500">Non-Logged-in Users</div>
+         <div class="text-2xl font-bold text-red-600">
+             {{ $summaryCounts['nonLoggedIn'] ?? 0 }}
+         </div>
+     </a>
+
+
+    </div>
+
     <!-- ✅ Flash Messages -->
     @if (session('success'))
         <div class="bg-green-100 border border-green-300 text-green-800 p-4 rounded mb-4">
@@ -71,13 +99,7 @@
             <a href="{{ route('login-tracking.index') }}" class="text-blue-600 underline pt-2">Reset</a>
         </div>
 
-        <!-- Link to non-logged-in users -->
-        <div class="ml-auto">
-            <a href="{{ route('login-tracking.non-logged-in', request()->only('filter', 'start_date', 'end_date', 'system')) }}"
-               class="text-indigo-600 underline font-medium">
-                View Non-Logged-In Users →
-            </a>
-        </div>
+       
     </form>
 
     <!-- 🔍 Filter Summary -->

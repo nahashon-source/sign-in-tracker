@@ -8,14 +8,17 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Services\LoginFilterService;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class LoginTrackingController extends Controller
 {
     protected $filterService;
+    protected $systems;
 
     public function __construct(LoginFilterService $filterService)
     {
         $this->filterService = $filterService;
+        $this->systems = ['SCM', 'Odoo', 'D365 Live', 'Fit Express', 'FIT ERP', 'Fit Express UAT', 'FITerp UAT', 'OPS', 'OPS UAT'];
     }
 
     /**
@@ -23,22 +26,23 @@ class LoginTrackingController extends Controller
      */
     public function index(Request $request)
     {
-        // ✅ Validate filter inputs
+        // ✅ Validate filters
         $validated = $request->validate([
             'filter' => 'nullable|in:this_month,previous_month,last_3_months',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
-            'system' => 'nullable|string',
+            'system' => 'nullable|string|in:' . implode(',', $this->systems),
+            'only_logged_in' => 'nullable|boolean',
         ]);
 
-        // 🔄 Extract standardized filters from request
+        // 🔄 Extract standardized filters
         extract($this->filterService->extract($request));
 
-        // 🧠 Build cache key (include page for paginated data)
+        // 🧠 Cache Key with pagination
         $page = $request->input('page', 1);
         $cacheKey = "logins_{$system}_{$filter}_{$startDate}_{$endDate}_page_{$page}";
 
-        // 🚀 Use cache to avoid duplicate queries
+        // 🚀 Get paginated user login data
         $users = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($startDate, $endDate, $system) {
             return User::with(['signIns' => function ($query) use ($startDate, $endDate, $system) {
                     $query->whereBetween('date_utc', [$startDate, $endDate])
@@ -53,30 +57,48 @@ class LoginTrackingController extends Controller
                 ->paginate(20);
         });
 
-        // 🧮 Count total logged-in users (non-paginated)
-        $loggedInCountCacheKey = "logins_count_{$system}_{$filter}_{$startDate}_{$endDate}";
-        $loggedInCount = Cache::remember($loggedInCountCacheKey, now()->addMinutes(15), function () use ($startDate, $endDate, $system) {
+        // ✅ Filter out users with no logins if requested
+        if ($request->boolean('only_logged_in')) {
+            $filtered = $users->getCollection()->filter(fn($user) => $user->login_count > 0)->values();
+
+            $users = new LengthAwarePaginator(
+                $filtered->forPage($page, 20),
+                $filtered->count(),
+                20,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
+
+        // 🧮 Count total logged-in users
+        $loggedInCountKey = "logins_count_{$system}_{$filter}_{$startDate}_{$endDate}";
+        $loggedInCount = Cache::remember($loggedInCountKey, now()->addMinutes(15), function () use ($startDate, $endDate, $system) {
             return User::withCount(['signIns as login_count' => function ($query) use ($startDate, $endDate, $system) {
                 $query->whereBetween('date_utc', [$startDate, $endDate])
                       ->where('system', $system);
             }])->having('login_count', '>', 0)->count();
         });
 
-        // 🧮 Count total users in the system
-        $totalUsersCount = Cache::remember('total_users_count', now()->addMinutes(60), function () {
-            return User::count();
-        });
-
-        // 🚫 Compute not-logged-in users
+        // 🧮 Total system users
+        $totalUsersCount = Cache::remember('total_users_count', now()->addMinutes(60), fn () => User::count());
         $nonLoggedInCount = $totalUsersCount - $loggedInCount;
 
-        // 📦 Return filtered result to view
+        // 📌 Filter label (for UI summary)
+        $filterLabel = match($filter) {
+            'this_month' => 'This Month',
+            'previous_month' => 'Previous Month',
+            'last_3_months' => 'Last 3 Months',
+            default => 'Custom Range'
+        };
+
         return view('login-tracking.index', [
             'users' => $users,
             'startDate' => $startDate,
             'endDate' => $endDate,
             'system' => $system,
             'filter' => $filter,
+            'filterLabel' => $filterLabel,
+            'systems' => $this->systems,
             'summaryCounts' => [
                 'loggedIn' => $loggedInCount,
                 'nonLoggedIn' => $nonLoggedInCount,
@@ -90,7 +112,6 @@ class LoginTrackingController extends Controller
      */
     public function nonLoggedInUsers(Request $request)
     {
-        // ✅ Validate filter inputs
         $validated = $request->validate([
             'filter' => 'nullable|in:this_month,previous_month,last_3_months',
             'start_date' => 'nullable|date',
@@ -98,14 +119,10 @@ class LoginTrackingController extends Controller
             'system' => 'nullable|string',
         ]);
 
-        // 🔄 Extract standardized filters
         extract($this->filterService->extract($request));
-
-        // 🧠 Build cache key
         $page = $request->input('page', 1);
         $cacheKey = "non_logins_{$system}_{$filter}_{$startDate}_{$endDate}_page_{$page}";
 
-        // 🚀 Cache result
         $nonLoggedInUsers = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($startDate, $endDate, $system) {
             return User::leftJoin('interactive_sign_ins', function ($join) use ($startDate, $endDate, $system) {
                     $join->on('users.id', '=', 'interactive_sign_ins.user_id')
@@ -118,21 +135,37 @@ class LoginTrackingController extends Controller
                 ->paginate(20);
         });
 
+        // 🧮 Total users
+        $totalUsersCount = Cache::remember('total_users_count', now()->addMinutes(60), fn() => User::count());
+
+        // 🧮 Logged-in users
+        $loggedInCountKey = "logins_count_{$system}_{$filter}_{$startDate}_{$endDate}";
+        $loggedInCount = Cache::remember($loggedInCountKey, now()->addMinutes(15), function () use ($startDate, $endDate, $system) {
+            return User::withCount(['signIns as login_count' => function ($query) use ($startDate, $endDate, $system) {
+                $query->whereBetween('date_utc', [$startDate, $endDate])
+                      ->where('system', $system);
+            }])->having('login_count', '>', 0)->count();
+        });
+
+        $nonLoggedInCount = $totalUsersCount - $loggedInCount;
+
         return view('login-tracking.non-logged-in', compact(
             'nonLoggedInUsers',
             'startDate',
             'endDate',
             'system',
-            'filter'
+            'filter',
+            'nonLoggedInCount',
+            'loggedInCount',
+            'totalUsersCount'
         ));
     }
 
     /**
-     * Add a new user manually.
+     * Add a user manually.
      */
     public function storeUser(Request $request)
     {
-        // ✅ Validate required fields
         $validated = $request->validate([
             'userPrincipalName' => 'required|unique:users',
             'displayName' => 'required',
@@ -141,7 +174,6 @@ class LoginTrackingController extends Controller
             'givenName' => 'required',
         ]);
 
-        // 🧾 Create user with defaults
         User::create([
             'id' => Str::uuid()->toString(),
             'userPrincipalName' => $validated['userPrincipalName'],
@@ -160,13 +192,12 @@ class LoginTrackingController extends Controller
     }
 
     /**
-     * Remove a user (only if no login history exists).
+     * Remove user only if no login activity exists.
      */
     public function destroyUser($id)
     {
         $user = User::findOrFail($id);
 
-        // 🔐 Prevent deletion if login history exists
         if ($user->signIns()->exists()) {
             return redirect()->back()->with('error', 'Cannot delete user with login history.');
         }
