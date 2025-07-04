@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginTrackingController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,4 +32,8 @@ Route::prefix('login-tracking')->group(function () {
     // Remove a user from the system
     Route::delete('/{id}', [LoginTrackingController::class, 'destroyUser'])
         ->name('login-tracking.destroy');
+
+        Route::get('/users/{id}', [UserController::class, 'show'])->name('users.show');
+        Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+
 });

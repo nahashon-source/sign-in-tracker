@@ -3,79 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Tracking</title>
+    <title>User Login Tracking</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100">
-    <div class="container mx-auto p-4">
-        <h1 class="text-2xl font-bold mb-4">User Login Tracking</h1>
+<div class="container mx-auto p-4">
 
-        <!-- Flash messages -->
-        @if (session('success'))
-            <div class="bg-green-200 text-green-800 p-2 rounded mb-4">
-                {{ session('success') }}
-            </div>
-        @elseif (session('error'))
-            <div class="bg-red-200 text-red-800 p-2 rounded mb-4">
-                {{ session('error') }}
-            </div>
-        @endif
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">User Login Tracking</h1>
 
-        <!-- Time Range Filter -->
-        <form method="GET" class="mb-4">
-            <label for="days" class="mr-2">Select Time Range:</label>
+    <!-- Flash Messages -->
+    @if (session('success'))
+        <div class="bg-green-200 text-green-800 p-3 rounded mb-4">{{ session('success') }}</div>
+    @elseif (session('error'))
+        <div class="bg-red-200 text-red-800 p-3 rounded mb-4">{{ session('error') }}</div>
+    @endif
+
+    <!-- Time Range + Date Range Filter -->
+    <form method="GET" class="mb-6 flex flex-wrap gap-3 items-end bg-white p-4 rounded shadow">
+        <div>
+            <label for="days" class="block font-medium">Quick Range</label>
             <select name="days" id="days" class="border p-2 rounded" onchange="this.form.submit()">
-                <option value="6" {{ $days == 6 ? 'selected' : '' }}>Last 6 Days</option>
-                <option value="12" {{ $days == 12 ? 'selected' : '' }}>Last 12 Days</option>
-                <option value="30" {{ $days == 30 ? 'selected' : '' }}>Last 30 Days</option>
+                <option value="6" {{ request('days') == 6 ? 'selected' : '' }}>Last 6 Days</option>
+                <option value="12" {{ request('days') == 12 ? 'selected' : '' }}>Last 12 Days</option>
+                <option value="30" {{ request('days') == 30 ? 'selected' : '' }}>Last 30 Days</option>
+                <option value="" {{ !request('days') ? 'selected' : '' }}>Custom</option>
             </select>
-            <a href="{{ route('login-tracking.non-logged-in') }}" class="ml-4 text-blue-500 underline">View Non-Logged-In Users</a>
-        </form>
+        </div>
 
-        <!-- User Addition Form -->
-        <form method="POST" action="{{ route('login-tracking.store') }}" class="mb-4 flex flex-wrap gap-2">
-            @csrf
-            <input type="text" name="userPrincipalName" placeholder="User Principal Name" class="border p-2 rounded" required>
-            <input type="text" name="displayName" placeholder="Display Name" class="border p-2 rounded" required>
-            <input type="text" name="surname" placeholder="Surname" class="border p-2 rounded" required>
-            <input type="email" name="mail" placeholder="Email" class="border p-2 rounded" required>
-            <input type="text" name="givenName" placeholder="Given Name" class="border p-2 rounded" required>
-            <button type="submit" class="bg-blue-500 text-white p-2 rounded">Add User</button>
-        </form>
+        <div>
+            <label for="start_date" class="block font-medium">Start</label>
+            <input type="date" name="start_date" id="start_date" value="{{ request('start_date') }}" class="border p-2 rounded">
+        </div>
 
-        <!-- Login Data Table -->
+        <div>
+            <label for="end_date" class="block font-medium">End</label>
+            <input type="date" name="end_date" id="end_date" value="{{ request('end_date') }}" class="border p-2 rounded">
+        </div>
+
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Filter</button>
+
+        <a href="{{ route('login-tracking.index') }}" class="text-blue-500 underline ml-2">Reset</a>
+        <a href="{{ route('login-tracking.non-logged-in') }}" class="ml-auto text-blue-600 font-medium underline">View Non-Logged-In Users</a>
+    </form>
+
+    <p class="text-gray-600 mb-3">Showing {{ $users->count() }} of {{ $users->total() }} users</p>
+
+    <!-- User Table -->
+    <div class="overflow-x-auto">
         <table class="w-full bg-white shadow rounded">
             <thead>
-                <tr class="bg-gray-200">
-                    <th class="p-2 text-left">User</th>
-                    <th class="p-2 text-left">Login Count</th>
-                    <th class="p-2 text-left">Last Login</th>
-                    <th class="p-2 text-left">Actions</th>
+                <tr class="bg-gray-200 text-left text-sm">
+                    <th class="p-3">User</th>
+                    <th class="p-3">Login Count</th>
+                    <th class="p-3">Last Login</th>
+                    <th class="p-3">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse ($loginData as $data)
-                    <tr class="border-t">
-                        <td class="p-2">{{ $data['user']->displayName ?? $data['user']->name ?? $data['user']->mail }}</td>
-                        <td class="p-2">{{ $data['login_count'] }}</td>
-                        <td class="p-2">
-                            {{ optional($data['sign_ins']->first())->date_utc ? \Carbon\Carbon::parse($data['sign_ins']->first()->date_utc)->toDayDateTimeString() : 'No logins' }}
+                @forelse ($users as $user)
+                    <tr class="hover:bg-gray-50 border-t text-sm">
+                        <td class="p-3 font-medium text-gray-800">
+                            {{ $user->displayName }}
+                            @if($user->email)
+                                <div class="text-gray-500 text-xs">{{ $user->email }}</div>
+                            @endif
                         </td>
-                        <td class="p-2">
-                            <form method="POST" action="{{ route('login-tracking.destroy', $data['user']->id) }}" onsubmit="return confirm('Are you sure you want to delete this user?')">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="bg-red-500 text-white p-1 rounded hover:bg-red-600">Remove</button>
-                            </form>
+                        <td class="p-3">
+                            @if($user->login_count == 0)
+                                <span class="text-red-500 font-semibold">{{ $user->login_count }}</span>
+                            @else
+                                <span class="text-green-600 font-semibold">{{ $user->login_count }}</span>
+                            @endif
+                        </td>
+                        <td class="p-3">
+                            {{ $user->signIns->first() ? \Carbon\Carbon::parse($user->signIns->first()->date_utc)->format('D, M j, Y g:i A') : 'No logins' }}
+                        </td>
+                        <td class="p-3">
+                            <a href="{{ route('users.show', $user->id) }}" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                View
+                            </a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="p-4 text-center text-gray-500">No users found for this time range.</td>
+                        <td colspan="4" class="p-4 text-center text-gray-500">No users found for this period.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination -->
+    <div class="mt-6">
+        {{ $users->withQueryString()->links() }}
+    </div>
+
+</div>
 </body>
 </html>
