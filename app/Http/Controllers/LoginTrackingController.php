@@ -53,8 +53,36 @@ class LoginTrackingController extends Controller
                 ->paginate(20);
         });
 
+        // 🧮 Count total logged-in users (non-paginated)
+        $loggedInCountCacheKey = "logins_count_{$system}_{$filter}_{$startDate}_{$endDate}";
+        $loggedInCount = Cache::remember($loggedInCountCacheKey, now()->addMinutes(15), function () use ($startDate, $endDate, $system) {
+            return User::withCount(['signIns as login_count' => function ($query) use ($startDate, $endDate, $system) {
+                $query->whereBetween('date_utc', [$startDate, $endDate])
+                      ->where('system', $system);
+            }])->having('login_count', '>', 0)->count();
+        });
+
+        // 🧮 Count total users in the system
+        $totalUsersCount = Cache::remember('total_users_count', now()->addMinutes(60), function () {
+            return User::count();
+        });
+
+        // 🚫 Compute not-logged-in users
+        $nonLoggedInCount = $totalUsersCount - $loggedInCount;
+
         // 📦 Return filtered result to view
-        return view('login-tracking.index', compact('users', 'startDate', 'endDate', 'system', 'filter'));
+        return view('login-tracking.index', [
+            'users' => $users,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'system' => $system,
+            'filter' => $filter,
+            'summaryCounts' => [
+                'loggedIn' => $loggedInCount,
+                'nonLoggedIn' => $nonLoggedInCount,
+                'total' => $totalUsersCount,
+            ],
+        ]);
     }
 
     /**
@@ -90,7 +118,13 @@ class LoginTrackingController extends Controller
                 ->paginate(20);
         });
 
-        return view('login-tracking.non-logged-in', compact('nonLoggedInUsers', 'startDate', 'endDate', 'system', 'filter'));
+        return view('login-tracking.non-logged-in', compact(
+            'nonLoggedInUsers',
+            'startDate',
+            'endDate',
+            'system',
+            'filter'
+        ));
     }
 
     /**
