@@ -9,13 +9,12 @@ class CreateInteractiveSignInsTable extends Migration
     public function up()
     {
         Schema::create('interactive_sign_ins', function (Blueprint $table) {
-            $table->id();
             $table->timestamp('date_utc')->nullable();
             $table->string('request_id')->nullable();
             $table->text('user_agent')->nullable();
             $table->string('correlation_id')->nullable();
 
-            $table->string('user_id'); // Foreign key to users.id
+            $table->string('user_id');
             $table->string('user')->nullable();
             $table->string('username')->nullable();
             $table->string('user_type')->nullable();

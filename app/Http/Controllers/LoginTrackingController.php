@@ -10,74 +10,106 @@ use Carbon\Carbon;
 
 class LoginTrackingController extends Controller
 {
-    /**
-     * Show login activity of all users within the given timeframe.
-     * Default: 30 days. Allows filtering by 6, 12, or 30 days.
-     */
+    protected $validSystems = [
+        'SCM', 'Odoo', 'D365 Live', 'Fit Express', 'FIT ERP',
+        'Fit Express UAT', 'FITerp UAT', 'OPS', 'OPS UAT',
+    ];
+
     public function index(Request $request)
     {
-        $days = in_array($request->input('days'), [6, 12, 30]) ? (int)$request->input('days') : 30;
-    
-        $startDate = $request->input('start_date') 
-            ? Carbon::parse($request->input('start_date'))->startOfDay() 
-            : Carbon::now()->subDays($days)->startOfDay();
-    
-        $endDate = $request->input('end_date') 
-            ? Carbon::parse($request->input('end_date'))->endOfDay() 
-            : Carbon::now()->endOfDay();
-    
-        // Eager-load sign-ins within the date range
-        $users = User::with(['signIns' => function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('date_utc', [$startDate, $endDate])->orderByDesc('date_utc');
+        // Handle system filtering
+        $system = in_array($request->input('system'), $this->validSystems) 
+                    ? $request->input('system') 
+                    : 'SCM';
+
+        // Handle date range filters
+        $filter = $request->input('filter');
+        switch ($filter) {
+            case 'this_month':
+                $startDate = Carbon::now()->startOfMonth();
+                $endDate = Carbon::now()->endOfDay();
+                break;
+            case 'previous_month':
+                $startDate = Carbon::now()->subMonth()->startOfMonth();
+                $endDate = Carbon::now()->subMonth()->endOfMonth();
+                break;
+            case 'last_3_months':
+                $startDate = Carbon::now()->subMonths(3)->startOfMonth();
+                $endDate = Carbon::now()->endOfDay();
+                break;
+            default:
+                $startDate = $request->input('start_date')
+                    ? Carbon::parse($request->input('start_date'))->startOfDay()
+                    : Carbon::now()->subDays(30)->startOfDay();
+
+                $endDate = $request->input('end_date')
+                    ? Carbon::parse($request->input('end_date'))->endOfDay()
+                    : Carbon::now()->endOfDay();
+        }
+
+        $users = User::with(['signIns' => function ($query) use ($startDate, $endDate, $system) {
+            $query->whereBetween('date_utc', [$startDate, $endDate])
+                  ->where('system', $system)
+                  ->orderByDesc('date_utc');
         }])
-        ->withCount(['signIns as login_count' => function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('date_utc', [$startDate, $endDate]);
+        ->withCount(['signIns as login_count' => function ($query) use ($startDate, $endDate, $system) {
+            $query->whereBetween('date_utc', [$startDate, $endDate])
+                  ->where('system', $system);
         }])
         ->orderBy('displayName')
         ->paginate(20);
-    
-        return view('login-tracking.index', compact('users', 'days', 'startDate', 'endDate'));
-    }
-    
 
-    /**
-     * Show users who have NOT logged in at all during the specified period.
-     */
+        return view('login-tracking.index', compact('users', 'startDate', 'endDate', 'system', 'filter'));
+    }
+
     public function nonLoggedInUsers(Request $request)
-{
-    $days = in_array($request->input('days'), [6, 12, 30]) ? (int)$request->input('days') : null;
+    {
+        $filter = $request->input('filter');
+        switch ($filter) {
+            case 'this_month':
+                $startDate = Carbon::now()->startOfMonth();
+                $endDate = Carbon::now()->endOfDay();
+                break;
+            case 'previous_month':
+                $startDate = Carbon::now()->subMonth()->startOfMonth();
+                $endDate = Carbon::now()->subMonth()->endOfMonth();
+                break;
+            case 'last_3_months':
+                $startDate = Carbon::now()->subMonths(3)->startOfMonth();
+                $endDate = Carbon::now()->endOfDay();
+                break;
+            default:
+                $startDate = $request->input('start_date')
+                    ? Carbon::parse($request->input('start_date'))->startOfDay()
+                    : Carbon::now()->subDays(30)->startOfDay();
 
-    // If days selected, override custom date range
-    if ($days) {
-        $startDate = Carbon::now()->subDays($days)->startOfDay();
-        $endDate = Carbon::now()->endOfDay();
-    } else {
-        // Use custom dates if provided
-        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->startOfDay() : Carbon::now()->subDays(30)->startOfDay();
-        $endDate   = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->endOfDay() : Carbon::now()->endOfDay();
+                $endDate = $request->input('end_date')
+                    ? Carbon::parse($request->input('end_date'))->endOfDay()
+                    : Carbon::now()->endOfDay();
+        }
+
+        $system = in_array($request->input('system'), $this->validSystems)
+                    ? $request->input('system')
+                    : 'SCM';
+
+        $nonLoggedInUsers = User::leftJoin('interactive_sign_ins', function ($join) use ($startDate, $endDate, $system) {
+                $join->on('users.id', '=', 'interactive_sign_ins.user_id')
+                     ->whereBetween('interactive_sign_ins.date_utc', [$startDate, $endDate])
+                     ->where('interactive_sign_ins.system', $system);
+            })
+            ->whereNull('interactive_sign_ins.user_id')
+            ->select('users.*')
+            ->paginate(20);
+
+        return view('login-tracking.non-logged-in', [
+            'nonLoggedInUsers' => $nonLoggedInUsers,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'filter' => $filter,
+            'system' => $system,
+        ]);
     }
 
-    // Left join to find users with no activity in the date range
-    $nonLoggedInUsers = User::leftJoin('interactive_sign_ins', function ($join) use ($startDate, $endDate) {
-            $join->on('users.id', '=', 'interactive_sign_ins.user_id')
-                 ->whereBetween('interactive_sign_ins.date_utc', [$startDate, $endDate]);
-        })
-        ->whereNull('interactive_sign_ins.user_id')
-        ->select('users.*')
-        ->paginate(20);
-
-    return view('login-tracking.non-logged-in', [
-        'nonLoggedInUsers' => $nonLoggedInUsers,
-        'days' => $days,  // safely defined, even if null
-        'start_date' => $request->input('start_date'),
-        'end_date'   => $request->input('end_date'),
-    ]);
-}
-
-
-    /**
-     * Add a new user to the system. Used by admin.
-     */
     public function storeUser(Request $request)
     {
         $validated = $request->validate([
@@ -105,9 +137,6 @@ class LoginTrackingController extends Controller
         return redirect()->route('login-tracking.index')->with('success', 'User added successfully.');
     }
 
-    /**
-     * Delete a user from the system.
-     */
     public function destroyUser($id)
     {
         $user = User::findOrFail($id);
